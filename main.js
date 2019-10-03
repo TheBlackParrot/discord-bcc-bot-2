@@ -1,5 +1,6 @@
 const Discord = require('discord.js');
 const fs = require("fs");
+const Sentencer = require("sentencer");
 
 const settings = require("./settings.json");
 
@@ -12,6 +13,11 @@ try {
 	var muteData = {};
 }
 var commandCooldowns = {};
+try {
+	var voiceData = require("./voice.json");
+} catch {
+	var voiceData = {};
+}
 
 function checkCooldown(user, cmd, cooldownPeriod) {
 	let now = Date.now();
@@ -33,9 +39,59 @@ function checkCooldown(user, cmd, cooldownPeriod) {
 	return true;
 }
 
+function vcCleanup() {
+	for(let memberId in voiceData) {
+		let channelData = voiceData[memberId];
+
+		if(channelData.persistent) {
+			continue;
+		}
+
+		let channel = guild.channels.get(channelData.channelId);
+		let textChannel = guild.channels.get(channelData.textChannelId);
+		if(!channel) {
+			removeVC(memberId);
+			continue;
+		}
+
+		let members = channel.members.array();
+		if(members.length <= 0) {
+			channelData.vacancyCheck++;
+
+			if(channelData.vacancyCheck == 1) {
+				textChannel.send(":warning: This voice channel will be deleted in 2 minutes if the channel remains vacant!");
+			}
+			if(channelData.vacancyCheck == 2) {
+				channel.delete()
+					.then(function(ch) {
+						textChannel.delete()
+							.then(function(tch) {
+								removeVC(memberId);
+							});
+					});
+			}
+		} else {
+			channelData.vacancyCheck = 0;
+		}
+	}
+
+	//let staff = guild.channels.get(settings.staffChannel);
+	//staff.send("Ran tick for VC cleanup");
+}
+
+function removeVC(memberId) {
+	delete voiceData[memberId];
+	console.log(`[VOICE CHANNELS] vc pertaining to voiceData for ${memberId} didn't exist? removed data`);
+	fs.writeFileSync("./voice.json", JSON.stringify(voiceData), "utf-8");
+}
+
+var vcCleanupInterval = setInterval(vcCleanup, 30000);
+
 client.on('ready', function() {
 	console.log(`Logged in as ${client.user.tag}!`);
 	guild = client.guilds.get(settings.discord.guild);
+
+	vcCleanup();
 });
 
 var functions = {
@@ -224,6 +280,93 @@ var functions = {
 		fs.writeFileSync("./mutes.json", JSON.stringify(muteData), "utf-8");
 
 		victim.send(`Your mute in ${guild.name} has ended.`);
+	},
+
+	"vc": function(channel, user, member, roles, isMod, msg) {
+		if(checkCooldown(user, "vc", 5000)) {
+			return;
+		}
+
+		if(!(member.id in voiceData) && channel.id !== settings.channels.commands) {
+			msg.reply(`To create your own voice channel, use \`!vc\` in <#${settings.channels.commands}>`)
+			return;
+		}
+
+		if(channel.id !== settings.channels.commands && channel.id !== voiceData[member.id].textChannelId) {
+			return;
+		}
+
+		if(member.id in voiceData) {
+			let voiceChannel = client.channels.get(voiceData[member.id].channelId);
+			if(voiceChannel) {
+				if(channel.id === settings.channels.commands) {
+					msg.reply(`You already have an active voice channel. (${voiceChannel.name})`);
+					return;
+				} else if(channel.id === voiceData[member.id].textChannelId) {
+					let parts = msg.content.split(" ").slice(1);
+					if(!parts.length) {
+						msg.reply("Available options: bitrate [kbps], userLimit [users], persist [0|1]");
+						return;
+					}
+
+					switch(parts[0].toLowerCase()) {
+						case "bitrate":
+							voiceChannel.setBitrate(parseInt(parts[1]));
+							msg.reply(`Bitrate set to ${parts[1]}kbps`);
+							break;
+
+						case "userlimit":
+							voiceChannel.setUserLimit(parseInt(parts[1]));
+							msg.reply(`User limit set to ${parts[1]} users`);
+							break;
+
+						case "persist":
+							if(!isMod) {
+								msg.reply("Only moderators can make their channels persist.");
+								return;
+							}
+
+							if(parts[1] === "1") {
+								msg.reply("This voice channel will now persist");
+								voiceData[member.id].persistent = true;
+							} else {
+								msg.reply("This voice channel will no longer persist");
+								voiceData[member.id].persistent = false;								
+							}
+							break;
+
+						default:
+							msg.reply("Available options: bitrate [kbps], userLimit [users], persist [0|1]");
+							break;
+					}
+
+					return;
+				}
+			}
+		}
+
+		let VCid = Sentencer.make("{{ adjective }} {{ noun }}").split(' ').map((s) => s.charAt(0).toUpperCase() + s.substring(1)).join(' ');
+		guild.createChannel(`${VCid}`, {type: "voice", parent: settings.voiceCategory, position: 0})
+			.then(function(newChannel) {
+				voiceData[member.id] = {
+					channelId: newChannel.id,
+					ownerId: member.id,
+					textChannelId: undefined,
+					persistent: false,
+					bitrate: 64,
+					vacancyCheck: 0
+				};
+
+				guild.createChannel(`${VCid}`, {type: "text", parent: settings.voiceCategory, position: 0})
+					.then(function(newTChannel) {
+						voiceData[member.id].textChannelId = newTChannel.id;
+						fs.writeFileSync("./voice.json", JSON.stringify(voiceData), "utf-8");
+
+						msg.reply(`Created voice channel **${VCid}** and respective text channel <#${newTChannel.id}>`);
+					})
+					.catch(console.error);
+			})
+			.catch(console.error);
 	}
 }
 
