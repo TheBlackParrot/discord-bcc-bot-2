@@ -345,7 +345,7 @@ var functions = {
 			}
 		}
 
-		let VCid = Sentencer.make("{{ adjective }} {{ noun }}").split(' ').map((s) => s.charAt(0).toUpperCase() + s.substring(1)).join(' ');
+		let VCid = Sentencer.make(`{{ adjective }} {{ ${Date.now % 2 ? "noun" : "nouns"} }}`).split(' ').map((s) => s.charAt(0).toUpperCase() + s.substring(1)).join(' ');
 		guild.createChannel(`${VCid}`, {type: "voice", parent: settings.voiceCategory, position: 0})
 			.then(function(newChannel) {
 				voiceData[member.id] = {
@@ -367,6 +367,22 @@ var functions = {
 					.catch(console.error);
 			})
 			.catch(console.error);
+	},
+
+	"vcid": function(channel, user, member, roles, isMod, msg) {
+		if(checkCooldown(user, "vcid", 1500)) {
+			return;
+		}
+
+		if(channel.id !== settings.channels.commands && channel.type !== "dm") {
+			return;
+		}
+
+		if(Date.now() % 2) {
+			channel.send(Sentencer.make("{{ an_adjective }} {{ noun }}"));
+		} else {
+			channel.send(Sentencer.make("{{ adjective }} {{ nouns }}"));
+		}
 	}
 }
 
