@@ -11,6 +11,27 @@ try {
 } catch {
 	var muteData = {};
 }
+var commandCooldowns = {};
+
+function checkCooldown(user, cmd, cooldownPeriod) {
+	let now = Date.now();
+
+	if(!(user.id in commandCooldowns)) {
+		commandCooldowns[user.id] = {};
+	}
+
+	if(!(cmd in commandCooldowns[user.id])) {
+		commandCooldowns[user.id][cmd] = Date.now();
+		return false;
+	}
+
+	if(now - commandCooldowns[user.id][cmd] > cooldownPeriod) {
+		commandCooldowns[user.id][cmd] = Date.now();
+		return false;
+	}
+
+	return true;
+}
 
 client.on('ready', function() {
 	console.log(`Logged in as ${client.user.tag}!`);
@@ -20,6 +41,10 @@ client.on('ready', function() {
 var functions = {
 	"hello": function(channel, user, member, roles, isMod, msg) {
 		if(channel.id !== settings.channels.commands && channel.type !== "dm") {
+			return;
+		}
+
+		if(checkCooldown(user, "hello", 10000)) {
 			return;
 		}
 
