@@ -1,6 +1,7 @@
 const Discord = require('discord.js');
 const fs = require("fs");
 const Sentencer = require("sentencer");
+const request = require("request");
 
 const settings = require("./settings.json");
 
@@ -21,6 +22,10 @@ try {
 
 function checkCooldown(user, cmd, cooldownPeriod) {
 	let now = Date.now();
+
+	if(user.isMod) {
+		return false;
+	}
 
 	if(!(user.id in commandCooldowns)) {
 		commandCooldowns[user.id] = {};
@@ -87,11 +92,19 @@ function removeVC(memberId) {
 
 var vcCleanupInterval = setInterval(vcCleanup, 30000);
 
+function generateVCName() {
+	return Sentencer.make(`{{ adjective }} {{ ${Date.now % 2 ? "noun" : "nouns"} }}`).split(' ').map((s) => s.charAt(0).toUpperCase() + s.substring(1)).join(' ')
+}
+
 client.on('ready', function() {
 	console.log(`Logged in as ${client.user.tag}!`);
 	guild = client.guilds.get(settings.discord.guild);
 
 	vcCleanup();
+
+	let channel = client.channels.get(settings.channels.commands);
+	channel.send(`Hello! :wave:\nStarted up on ${new Date().toString()}`);
+
 });
 
 var functions = {
@@ -100,7 +113,7 @@ var functions = {
 			return;
 		}
 
-		if(checkCooldown(user, "hello", 10000)) {
+		if(checkCooldown(user, "hello", 3000)) {
 			return;
 		}
 
@@ -283,10 +296,6 @@ var functions = {
 	},
 
 	"vc": function(channel, user, member, roles, isMod, msg) {
-		if(checkCooldown(user, "vc", 5000)) {
-			return;
-		}
-
 		if(!(member.id in voiceData) && channel.id !== settings.channels.commands) {
 			msg.reply(`To create your own voice channel, use \`!vc\` in <#${settings.channels.commands}>`)
 			return;
@@ -305,17 +314,21 @@ var functions = {
 				} else if(channel.id === voiceData[member.id].textChannelId) {
 					let parts = msg.content.split(" ").slice(1);
 					if(!parts.length) {
-						msg.reply("Available options: bitrate [kbps], userLimit [users], persist [0|1]");
+						msg.reply("Available options: bitrate [kbps], userLimit [users], persist [0|1], newName");
 						return;
 					}
 
 					switch(parts[0].toLowerCase()) {
 						case "bitrate":
+							if(checkCooldown(user, "vcBitrate", 2000)) { return; }
+
 							voiceChannel.setBitrate(parseInt(parts[1]));
 							msg.reply(`Bitrate set to ${parts[1]}kbps`);
 							break;
 
 						case "userlimit":
+							if(checkCooldown(user, "vcUserLimit", 2000)) { return; }
+
 							voiceChannel.setUserLimit(parseInt(parts[1]));
 							msg.reply(`User limit set to ${parts[1]} users`);
 							break;
@@ -335,6 +348,18 @@ var functions = {
 							}
 							break;
 
+						case "newname":
+							if(checkCooldown(user, "vcName", 60000)) { return; }
+
+							let newName = generateVCName();
+							voiceChannel.setName(newName);
+							let textChannel = guild.channels.get(voiceData[member.id].textChannelId);
+							if(textChannel) {
+								textChannel.setName(newName);
+							}
+							msg.reply(`Channel renamed to **${newName}**`);
+							break;
+
 						default:
 							msg.reply("Available options: bitrate [kbps], userLimit [users], persist [0|1]");
 							break;
@@ -345,7 +370,9 @@ var functions = {
 			}
 		}
 
-		let VCid = Sentencer.make(`{{ adjective }} {{ ${Date.now % 2 ? "noun" : "nouns"} }}`).split(' ').map((s) => s.charAt(0).toUpperCase() + s.substring(1)).join(' ');
+		if(checkCooldown(user, "vc", 30000)) { return; }
+
+		let VCid = generateVCName();
 		guild.createChannel(`${VCid}`, {type: "voice", parent: settings.voiceCategory, position: 0})
 			.then(function(newChannel) {
 				voiceData[member.id] = {
@@ -382,6 +409,110 @@ var functions = {
 			channel.send(Sentencer.make("{{ an_adjective }} {{ noun }}"));
 		} else {
 			channel.send(Sentencer.make("{{ adjective }} {{ nouns }}"));
+		}
+	},
+
+	"servers": function(channel, user, member, roles, isMod, msg) {
+		if(channel.id !== settings.channels.commands && channel.type !== "dm") {
+			return;
+		}
+
+		const availableGames = {
+			blockland: "blockland",
+			bl: "blockland",
+			brickadia: "brickadia",
+			br: "brickadia"
+		};
+
+		let parts = msg.content.toLowerCase().split(" ").splice(1);
+		let wantedGame;
+
+		if(!parts.length) {
+			msg.reply(`Available games: ${[...new Set(Object.values(availableGames))].join(", ")}`);
+			return;
+		} else {
+			if(!(parts[0] in availableGames)) {
+				msg.reply(`Available games: ${[...new Set(Object.values(availableGames))].join(", ")} [parts0 not in availableGames]`);
+				return;			
+			}
+			wantedGame = availableGames[parts[0]];
+		}
+
+		let skipLinesBL = ["END", "START", "FIELDS", ""];
+
+		switch(wantedGame) {
+			case "blockland":
+				if(checkCooldown(user, "serversBL", 15000)) {
+					return;
+				}
+
+				channel.startTyping();
+				request("http://master2.blockland.us", function(err, response, body) {
+					channel.stopTyping(true);
+
+					if(err) {
+						channel.send("Error retrieving master server data.");
+						return;
+					}
+					
+					let rows = body.split("\n").map(function(c) {
+						return c.trim().split("\t");
+					});
+
+					let output = [];
+					let sorted = {};
+					
+					for(let idx = 0; idx < rows.length; idx++) {
+						let row = rows[idx];
+						if(skipLinesBL.indexOf(row[0]) !== -1) {
+							continue;
+						}
+
+						let passworded = (row[2] === "1");
+
+						let host = row[4].substr(0, row[4].indexOf("'s"));
+						let title = row[4].substr(row[4].indexOf("'s")+3);
+						if(host === "") {
+							host = row[4].substr(0, row[4].indexOf("'"));
+							title = row[4].substr(row[4].indexOf("'")+2);
+						}
+
+						let players = `${row[5]} / ${row[6]}`;
+
+						if(row[5] !== "0") {
+							if(!(row[5] in sorted)) {
+								sorted[row[5]] = [];
+							}
+
+							sorted[row[5]].push(`${passworded ? ":lock:" : ""} ${host}'s **${title}**\n:busts_in_silhouette: ${players} players online\n`);
+						}
+					}
+
+					console.log(sorted);
+
+					let p = Object.keys(sorted).sort(function(a, b) {return parseInt(b)-parseInt(a)});
+					for(let pp in p) {
+						let lines = sorted[p[pp]];
+						for(let idx in lines) {
+							output.push(lines[idx]);
+						}
+					}
+
+					if(output.length) {
+						channel.send(output);
+					} else {
+						channel.send("(no output?)");
+					}
+				});
+				break;
+
+			case "brickadia":
+				if(checkCooldown(user, "serversBR", 15000)) {
+					return;
+				}
+
+				msg.reply("wip");
+				break;
 		}
 	}
 }
@@ -453,6 +584,8 @@ client.on('message', function(msg) {
 			isMod = true;
 		}
 	}
+
+	user.isMod = isMod; // todo: use this everywhere
 
 	let cmd = content.split(" ").slice(0, 1);
 	if(cmd in functions) {
