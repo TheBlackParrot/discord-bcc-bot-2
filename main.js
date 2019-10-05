@@ -561,8 +561,143 @@ var functions = {
 
 				break;
 		}
+	},
+
+	"staffwatch": function(channel, user, member, roles, isMod, msg) {
+		if(!user.isMod) {
+			return;
+		}
+
+		let parts = msg.content.split(" ").slice(1);
+		if(!parts.length) {
+			msg.reply("No message ID is present. (1st arg)");
+			return;
+		}
+
+		if(parts.length === 1) {
+			msg.reply("No raffle emote is present. (2nd arg)");
+			return;
+		}
+
+		let safeEmote = parts[1].replace(/\:/g, '');
+
+		let channels = client.channels.array();
+		channel.startTyping();
+		for(let idx in channels) {
+			let ch = channels[idx];
+
+			if(ch.type !== "text") {
+				continue;
+			}
+
+			ch.fetchMessage(parts[0])
+				.then(function(wantedMessage) {
+					let out = [];
+					channel.stopTyping(true);
+
+					let reactions = wantedMessage.reactions.array();
+					let wantedReaction;
+					for(let ridx in reactions) {
+						let r = reactions[ridx];
+						let emote = r.emoji;
+
+						if(emote.name === safeEmote) {
+							// this isn't right but it's working so whatever
+							wantedReaction = r;
+							break;
+						}
+					}
+
+					wantedReaction.fetchUsers()
+						.then(function(usersCollection) {
+							let users = usersCollection.array();
+							//console.log(users);
+
+							let exclude = [];
+							let allowedMembers = [];
+
+							wantedMessage.guild.fetchMembers()
+								.then(function(guildMembersCollectionISuppose) {
+									let eout = [];
+
+									for(let uidx in users) {
+										let skip = false;
+										let u = users[uidx];
+										let m;
+
+										// hhhhhh
+										let guildMembers = guildMembersCollectionISuppose.members.array();
+										for(let gmidx in guildMembers) {
+											let guildMember = guildMembers[gmidx];
+											let guildUser = guildMember.user;
+
+											if(guildUser.id === u.id) {
+												m = guildMember;
+												break;
+											}
+										}
+
+										if(typeof m === "undefined") {
+											console.log(`${u.tag} doesn't exist according to this library?`);
+											continue;
+										}
+
+										if(m.roles.has(settings.staffWatchRole)) {
+											m.removeRole(settings.staffWatchRole);
+											exclude.push(m);
+											eout.push(`${u.tag} -- *previously Staff Watch*`);
+											skip = true;
+										}
+
+										if(m.roles.has(settings.muteRole)) {
+											exclude.push(m);
+											eout.push(`${u.tag} -- *muted*`);
+											skip = true;
+										}
+
+										for(let kdjfs in settings.moderationRoles) {
+											if(m.roles.has(settings.moderationRoles[kdjfs])) {
+												exclude.push(m);
+												eout.push(`${u.tag} -- *is considered a staff member*`);
+												skip = true;
+											}
+										}
+
+										if(!skip) {
+											allowedMembers.push(m);
+										}
+									}
+									exclude = [...new Set(exclude)];
+									//channel.send(`**ALLOWED**\n${allowedMembers.join(", ")}\n\n**EXCLUDED**\n${exclude.join(", ")}`);
+
+									let chosen = [];
+									let out = [];
+
+									for(let i = 0; i < 5; i++) {
+										let wants = allowedMembers[Math.floor(Math.random() * allowedMembers.length)];
+										while(chosen.indexOf(wants) != -1) {
+											wants = allowedMembers[Math.floor(Math.random() * allowedMembers.length)];
+										}
+
+										chosen.push(wants);
+									}
+
+									for(cidx in chosen) {
+										let theChose = chosen[cidx];
+										theChose.addRole(settings.staffWatchRole);
+										out.push(theChose.user.tag);
+									}
+
+									channel.send(`**Set staff watch to:**\n${out.join("\n")}\n\n**Excluded from drawing:**\n${eout.join("\n")}`);
+								})
+						})
+						.catch(console.error);
+				})
+				.catch(function(err) {});
+		}
 	}
 }
+functions["sw"] = functions["staffwatch"];
 
 function muteTick() {
 	if(!muteData.length) {
