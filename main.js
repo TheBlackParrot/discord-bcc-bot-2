@@ -96,6 +96,24 @@ function generateVCName() {
 	return Sentencer.make(`{{ adjective }} {{ ${Date.now % 2 ? "noun" : "nouns"} }}`).split(' ').map((s) => s.charAt(0).toUpperCase() + s.substring(1)).join(' ')
 }
 
+function sendServerList(channel, sorted) {
+	let output = [];
+	let p = Object.keys(sorted).sort(function(a, b) {return parseInt(b)-parseInt(a)});
+
+	for(let pp in p) {
+		let lines = sorted[p[pp]];
+		for(let idx in lines) {
+			output.push(lines[idx]);
+		}
+	}
+
+	if(output.length) {
+		channel.send(output);
+	} else {
+		channel.send("No active servers?");
+	}
+}
+
 client.on('ready', function() {
 	console.log(`Logged in as ${client.user.tag}!`);
 	guild = client.guilds.get(settings.discord.guild);
@@ -488,21 +506,7 @@ var functions = {
 						}
 					}
 
-					console.log(sorted);
-
-					let p = Object.keys(sorted).sort(function(a, b) {return parseInt(b)-parseInt(a)});
-					for(let pp in p) {
-						let lines = sorted[p[pp]];
-						for(let idx in lines) {
-							output.push(lines[idx]);
-						}
-					}
-
-					if(output.length) {
-						channel.send(output);
-					} else {
-						channel.send("(no output?)");
-					}
+					sendServerList(channel, sorted);
 				});
 				break;
 
@@ -511,7 +515,50 @@ var functions = {
 					return;
 				}
 
-				msg.reply("wip");
+				channel.startTyping();
+
+				request("https://brickadia.com/api/v1/servers", function(err, response, body) {
+					channel.stopTyping(true);
+
+					if(err) {
+						channel.send("Error retrieving master server data.");
+						return;
+					}
+
+					let data = JSON.parse(body);
+					let currentGameVersion = data.currentGameVersion;
+					let servers = data.servers;
+
+					let output = [];
+					let sorted = {};
+
+					for(let idx in servers) {
+						let serverData = servers[idx];
+
+						if(serverData.version !== currentGameVersion) {
+							continue;
+						}
+
+						if(serverData.playerCount <= 0) {
+							continue;
+						}
+
+						let passworded = serverData.passworded;
+
+						let host = serverData.hostName;
+						let title = serverData.name;
+						let players = `${serverData.playerCount} / ${serverData.playerLimit}`;
+
+						if(!(serverData.playerCount in sorted)) {
+							sorted[serverData.playerCount] = [];
+						}
+
+						sorted[serverData.playerCount].push(`${passworded ? ":lock:" : ""} ${host}'s **${title}**\n:busts_in_silhouette: ${players} players online\n`);
+					}
+
+					sendServerList(channel, sorted);
+				});
+
 				break;
 		}
 	}
