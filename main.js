@@ -145,6 +145,17 @@ function sendServerList(channel, sorted) {
 
 function getSomeInfo() {
 	let owner = client.users.get(settings.ownerID);
+	let rev;
+
+	try {
+		rev = fs.readFileSync('.git/HEAD').toString().trim();
+		if(rev.indexOf(':') !== -1) {
+			rev = fs.readFileSync('.git/' + rev.substring(5)).toString();
+		}
+	} catch(e) {
+		console.error(e);
+		rev = "N/A";
+	}
 
 	return [
 		"```",
@@ -153,6 +164,7 @@ function getSomeInfo() {
 		`BOT UPTIME   ${process.uptime().toString().formatTime()}`,
 		`OS           ${os.platform()} ${os.release()}`,
 		`NODE.JS      ${process.version}`,
+		`GIT COMMIT   ${rev.trim().substr(0, 7)}`,
 		`OWNER        ${owner.tag}`,
 		`DEBUG MODE   ${debugMode}`,
 		"```"
@@ -813,6 +825,27 @@ var functions = {
 			debugMode = true;
 			msg.reply("Debug mode now on");
 		}
+	},
+
+	"restart": function(channel, user, member, roles, isMod, msg) {
+		if(checkCooldown(user, "restart", 1500)) {
+			return;
+		}
+
+		if(channel.id !== settings.channels.commands && channel.type !== "dm") {
+			return;
+		}
+
+		let owner = client.users.get(settings.ownerID);
+
+		if(user.id !== owner.id) {
+			msg.reply(`Only ${owner.tag} can use this command`);
+			return;
+		}
+
+		// using pm2 so this should trigger it to start it back up
+		// you'd do something like https://stackoverflow.com/a/55371749 otherwise
+		process.exit();
 	}
 }
 const aliases = {
