@@ -39,5 +39,9 @@
 
 	"voiceCategory": "629244531073613825",
 
-	"staffWatchRole": "629988137078095885"
+	"staffWatchRole": "629988137078095885",
+
+	"debug": true,
+
+	"ownerID": "your id here"
 }

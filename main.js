@@ -2,8 +2,13 @@ const Discord = require('discord.js');
 const fs = require("fs");
 const Sentencer = require("sentencer");
 const request = require("request");
+const os = require("os");
 
 const settings = require("./settings.json");
+var debugMode = false;
+if(settings.debug) {
+	debugMode = true;
+}
 
 var guild;
 const client = new Discord.Client();
@@ -18,6 +23,19 @@ try {
 	var voiceData = require("./voice.json");
 } catch {
 	var voiceData = {};
+}
+
+const helloEmotes = [":wave:", ":grinning:", ":smile:", ":innocent:", ":wink:", ":blush:", ":sunglasses:", ":clap:", ":thumbsup:", ":v:", ":muscle:", ":metal:"];
+
+String.prototype.formatTime = function () {
+    var sec_num = parseInt(this, 10);
+
+    var seconds = sec_num % 60;
+    var minutes = Math.floor(sec_num / 60) % 60;
+    var hours = Math.floor((sec_num / 60) / 60) % 24;
+    var days = Math.floor(((sec_num / 60) / 60) / 24);
+
+    return `${days}d ${hours}h ${minutes}m ${seconds}s`;
 }
 
 function checkCooldown(user, cmd, cooldownPeriod) {
@@ -42,6 +60,17 @@ function checkCooldown(user, cmd, cooldownPeriod) {
 	}
 
 	return true;
+}
+
+function log(data) {
+	console.log(data);
+
+	if(!debugMode) {
+		return;
+	}
+
+	let channel = client.channels.get(settings.channels.commands);
+	channel.send(`[DEBUG] ${data}`);
 }
 
 function vcCleanup() {
@@ -86,7 +115,7 @@ function vcCleanup() {
 
 function removeVC(memberId) {
 	delete voiceData[memberId];
-	console.log(`[VOICE CHANNELS] vc pertaining to voiceData for ${memberId} didn't exist? removed data`);
+	log(`[VOICE CHANNELS] vc pertaining to voiceData for ${memberId} didn't exist? removed data`);
 	fs.writeFileSync("./voice.json", JSON.stringify(voiceData), "utf-8");
 }
 
@@ -114,15 +143,33 @@ function sendServerList(channel, sorted) {
 	}
 }
 
+function getSomeInfo() {
+	let owner = client.users.get(settings.ownerID);
+
+	return [
+		"```",
+		`TIME/DATE    ${new Date().toString()}`,
+		`SYS UPTIME   ${os.uptime().toString().formatTime()}`,
+		`BOT UPTIME   ${process.uptime().toString().formatTime()}`,
+		`OS           ${os.platform()} ${os.release()}`,
+		`NODE.JS      ${process.version}`,
+		`OWNER        ${owner.tag}`,
+		`DEBUG MODE   ${debugMode}`,
+		"```"
+	];
+}
+
 client.on('ready', function() {
 	console.log(`Logged in as ${client.user.tag}!`);
 	guild = client.guilds.get(settings.discord.guild);
 
 	vcCleanup();
 
-	let channel = client.channels.get(settings.channels.commands);
-	channel.send(`Hello! :wave:\nStarted up on ${new Date().toString()}`);
+	let lines = getSomeInfo();
+	lines.unshift(`Hello! ${helloEmotes[Math.floor(Math.random() * helloEmotes.length)]}`);
 
+	let channel = client.channels.get(settings.channels.commands);
+	channel.send(lines.join("\n"));
 });
 
 var functions = {
@@ -135,7 +182,7 @@ var functions = {
 			return;
 		}
 
-		msg.reply("Hello! :wave:");
+		msg.reply(`Hello! ${helloEmotes[Math.floor(Math.random() * helloEmotes.length)]}`);
 	},
 
 	"role": function(channel, user, member, roles, isMod, msg) {
@@ -147,7 +194,7 @@ var functions = {
 		let parts = content.toLowerCase().split(" ").slice(1);
 
 		if(parts.length == 0) {
-			msg.reply(`You must specify a role.`);
+			msg.reply(`You must specify a role.\n\n**Available roles:** ${settings.toggleableRoles.join(", ")}`);
 			return;
 		}
 
@@ -196,7 +243,6 @@ var functions = {
 		}
 
 		if(hasWantedRole) {
-			console.log(mentionableRoleCount);
 			if(mentionableRoleCount === 1 && wantedRole.name.toLowerCase().indexOf("mentionable") !== -1) {
 				member.removeRole(mentionableRole);
 			}
@@ -221,6 +267,10 @@ var functions = {
 			msg.reply("You must specify who to mute.");
 			return;
 		}
+
+		//
+		// TODO: move this away from cached member lists
+		//
 
 		let victim = msg.mentions.members.first();
 		if(!victim) {
@@ -323,6 +373,8 @@ var functions = {
 			return;
 		}
 
+		const opts = "**Available options/commands**: bitrate [kbps], userLimit [users], persist [0|1], newName, delete";
+
 		if(member.id in voiceData) {
 			let voiceChannel = client.channels.get(voiceData[member.id].channelId);
 			if(voiceChannel) {
@@ -332,7 +384,7 @@ var functions = {
 				} else if(channel.id === voiceData[member.id].textChannelId) {
 					let parts = msg.content.split(" ").slice(1);
 					if(!parts.length) {
-						msg.reply("Available options: bitrate [kbps], userLimit [users], persist [0|1], newName");
+						msg.reply(opts);
 						return;
 					}
 
@@ -378,8 +430,16 @@ var functions = {
 							msg.reply(`Channel renamed to **${newName}**`);
 							break;
 
+						case "delete":
+							voiceChannel.delete()
+								.then(function(ch) {
+									let textChannel = guild.channels.get(voiceData[member.id].textChannelId);
+									textChannel.delete()
+								});
+							break;
+
 						default:
-							msg.reply("Available options: bitrate [kbps], userLimit [users], persist [0|1]");
+							msg.reply(opts);
 							break;
 					}
 
@@ -434,6 +494,12 @@ var functions = {
 		if(channel.id !== settings.channels.commands && channel.type !== "dm") {
 			return;
 		}
+
+		/*
+		possibilities:
+			- Ace of Spades 0.75 (aos75/bas75)
+			- Ace of Spades 0.76 (aos76/bas76)
+		*/ 
 
 		const availableGames = {
 			blockland: "blockland",
@@ -638,7 +704,7 @@ var functions = {
 										}
 
 										if(typeof m === "undefined") {
-											console.log(`${u.tag} doesn't exist according to this library?`);
+											log(`[SW] ${u.tag} doesn't exist?`);
 											continue;
 										}
 
@@ -649,7 +715,7 @@ var functions = {
 											skip = true;
 										}
 
-										if(m.roles.has(settings.muteRole)) {
+										else if(m.roles.has(settings.muteRole)) {
 											exclude.push(m);
 											eout.push(`${u.tag} -- *muted*`);
 											skip = true;
@@ -688,16 +754,75 @@ var functions = {
 										out.push(theChose.user.tag);
 									}
 
-									channel.send(`**Set staff watch to:**\n${out.join("\n")}\n\n**Excluded from drawing:**\n${eout.join("\n")}`);
+									client.channels.get(settings.staffChannel).send(`**Set staff watch to:**\n${out.join("\n")}\n\n**Excluded from drawing:**\n${eout.join("\n")}`);
 								})
 						})
 						.catch(console.error);
 				})
 				.catch(function(err) {});
 		}
+	},
+
+	"info": function(channel, user, member, roles, isMod, msg) {
+		if(checkCooldown(user, "info", 5000)) {
+			return;
+		}
+
+		if(channel.id !== settings.channels.commands && channel.type !== "dm") {
+			return;
+		}
+
+		let lines = getSomeInfo();
+		lines.push("**Available commands**");
+		let cmdlineFuncs = [];
+		for(let cmd in functions) {
+			if(cmd in aliases) {
+				cmdlineFuncs.push(`\`!${cmd}\` *(alias of \`!${aliases[cmd]}\`)*`);
+			} else {
+				cmdlineFuncs.push(`\`!${cmd}\``);
+			}
+		}
+
+		lines.push(cmdlineFuncs.join(" \\|\\| "));
+
+		lines.push("\nSource code for the bot is available here: https://github.com/TheBlackParrot/discord-bcc-bot-2");
+
+		channel.send(lines);
+	},
+
+	"debug": function(channel, user, member, roles, isMod, msg) {
+		if(checkCooldown(user, "info", 1500)) {
+			return;
+		}
+
+		if(channel.id !== settings.channels.commands && channel.type !== "dm") {
+			return;
+		}
+
+		let owner = client.users.get(settings.ownerID);
+
+		if(user.id !== owner.id) {
+			msg.reply(`Only ${owner.tag} can use this command`);
+			return;
+		}
+
+		if(debugMode) {
+			debugMode = false;
+			msg.reply("Debug mode now off");
+		} else {
+			debugMode = true;
+			msg.reply("Debug mode now on");
+		}
 	}
 }
-functions["sw"] = functions["staffwatch"];
+const aliases = {
+	"sw": "staffwatch",
+	"help": "info",
+	"cmds": "info"
+}
+for(let alias in aliases) {
+	functions[alias] = functions[aliases[alias]];
+}
 
 function muteTick() {
 	if(!muteData.length) {
@@ -724,7 +849,7 @@ function muteTick() {
 					staff.send(`Mute for ${data.member} has ended. (not present on guild)`);
 				}
 
-				console.log(`ended mute for member ID ${data.member}`);
+				log(`[MUTE] ended mute for member ID ${data.member}`);
 
 				muteData.splice(idx, 1);
 				fs.writeFileSync("./mutes.json", JSON.stringify(muteData), "utf-8");
