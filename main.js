@@ -547,7 +547,7 @@ var functions = {
 					channel.stopTyping(true);
 
 					if(err) {
-						channel.send("Error retrieving master server data.");
+						channel.send(`Error retrieving master server data.\n\`\`\`\n${err}\n\`\`\``);
 						return;
 					}
 					
@@ -599,7 +599,7 @@ var functions = {
 					channel.stopTyping(true);
 
 					if(err) {
-						channel.send("Error retrieving master server data.");
+						channel.send(`Error retrieving master server data.\n\`\`\`\n${err}\n\`\`\``);
 						return;
 					}
 
