@@ -119,7 +119,7 @@ function removeVC(memberId) {
 	fs.writeFileSync("./voice.json", JSON.stringify(voiceData), "utf-8");
 }
 
-var vcCleanupInterval = setInterval(vcCleanup, 30000);
+var vcCleanupInterval = setInterval(vcCleanup, 120000);
 
 function generateVCName() {
 	return Sentencer.make(`{{ adjective }} {{ ${Date.now % 2 ? "noun" : "nouns"} }}`).split(' ').map((s) => s.charAt(0).toUpperCase() + s.substring(1)).join(' ')
