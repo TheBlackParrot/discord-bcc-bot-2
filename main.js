@@ -846,6 +846,21 @@ var functions = {
 		// using pm2 so this should trigger it to start it back up
 		// you'd do something like https://stackoverflow.com/a/55371749 otherwise
 		process.exit();
+	},
+
+	"hackban": function(channel, user, member, roles, isMod, msg) {
+		if(!isMod) {
+			return;
+		}
+
+		let parts = msg.content.split(" ").slice(1);
+		if(!parts.length) {
+			msg.reply("You must specify an ID to hackban.");
+			return;
+		}
+
+		channel.guild.ban(parts[0], {days: 7})
+			.then(msg.reply(`Banned \`${parts[0]}\``));
 	}
 }
 const aliases = {
