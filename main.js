@@ -949,4 +949,25 @@ client.on("guildMemberAdd", function(member) {
 	}	
 });
 
+client.on("messageDelete", function(message) {
+	if(message.author.id === client.user.id) {
+		return;
+	}
+
+	let now = new Date();
+	let timestr = [now.getHours(), now.getMinutes().toString().padStart(2, '0'), now.getSeconds().toString().padStart(2, '0')].join(":");
+	let whom = [message.author.username, message.author.discriminator].join("#");
+	let where = `<#${message.channel.id}>`;
+
+	let lines = [
+		`\`[${timestr}]\` User **${whom}** \`(${message.member.id})\` :x: *deleted* a message from ${where}`,
+		"```",
+		message.cleanContent.substr(0, 1500),
+		"```"
+	];
+
+	let channel = client.channels.get(settings.channels.logs);
+	channel.send(lines.join("\n"));
+});
+
 client.login(settings.discord.token);

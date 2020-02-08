@@ -22,11 +22,13 @@
 		"Mentionable Eventer",
 		"Mentionable Builder",
 		"Mentionable Audio",
-		"Mentionable Server Host"
+		"Mentionable Server Host",
+		"Archive Visible"
 	],
 
 	"channels": {
-		"commands": "628894094633992193"
+		"commands": "628894094633992193",
+		"logs": "482075145381609472"
 	},
 
 	"moderationRoles": [
