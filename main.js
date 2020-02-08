@@ -960,13 +960,44 @@ client.on("messageDelete", function(message) {
 	let where = `<#${message.channel.id}>`;
 
 	let lines = [
-		`\`[${timestr}]\` User **${whom}** \`(${message.member.id})\` :x: *deleted* a message from ${where}`,
+		`\`[${timestr}]\` A message from **${whom}** \`(${message.member.id})\` was :x: *deleted* from ${where}`,
 		"```",
 		message.cleanContent.substr(0, 1500),
 		"```"
 	];
 
 	let channel = client.channels.get(settings.channels.logs);
+	channel.send(lines.join("\n"));
+});
+
+client.on("messageUpdate", function(oldMessage, newMessage) {
+	if(oldMessage.author.id === client.user.id) {
+		return;
+	}
+
+	let now = new Date();
+	let timestr = [now.getHours(), now.getMinutes().toString().padStart(2, '0'), now.getSeconds().toString().padStart(2, '0')].join(":");
+	let whom = [oldMessage.author.username, oldMessage.author.discriminator].join("#");
+	let where = `<#${oldMessage.channel.id}>`;
+
+	let lines = [
+		`\`[${timestr}]\` A message from **${whom}** \`(${oldMessage.member.id})\` was :pencil2: *modified* from ${where}`,
+		"**BEFORE**",
+		"```",
+		oldMessage.cleanContent.substr(0, 1500),
+		"```"
+	];
+
+	let channel = client.channels.get(settings.channels.logs);
+	channel.send(lines.join("\n"));
+
+	lines = [
+		"**AFTER**",
+		"```",
+		newMessage.cleanContent.substr(0, 1500),
+		"```"
+	];
+
 	channel.send(lines.join("\n"));
 });
 
