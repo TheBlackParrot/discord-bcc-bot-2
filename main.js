@@ -866,7 +866,8 @@ var functions = {
 const aliases = {
 	"sw": "staffwatch",
 	"help": "info",
-	"cmds": "info"
+	"cmds": "info",
+	"ban": "hackban"
 }
 for(let alias in aliases) {
 	functions[alias] = functions[aliases[alias]];
