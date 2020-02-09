@@ -991,6 +991,10 @@ client.on("messageUpdate", function(oldMessage, newMessage) {
 		return;
 	}
 
+	if(oldMessage.cleanContent === newMessage.cleanContent) {
+		return;
+	}
+
 	let now = new Date();
 	let timestr = [now.getHours(), now.getMinutes().toString().padStart(2, '0'), now.getSeconds().toString().padStart(2, '0')].join(":");
 	let whom = [oldMessage.author.username, oldMessage.author.discriminator].join("#");
