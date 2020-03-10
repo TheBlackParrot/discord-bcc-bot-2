@@ -276,7 +276,7 @@ var functions = {
 
 		let parts = msg.content.split(" ").slice(1);
 		if(parts.length < 2) {
-			msg.reply("You must specify who to mute.");
+			msg.reply("You must specify who to mute.\narguments: ```victim time_in_minutes [optional reason]```");
 			return;
 		}
 
@@ -324,6 +324,11 @@ var functions = {
 			out.push(`You have been muted in ${guild.name} by a moderator for ${minutes.toLocaleString()} minutes.`);
 		} else {
 			out.push(`You have been permanently muted in ${guild.name} by a moderator.`);
+		}
+
+		var reason = parts.slice(2).join(" ");
+		if(typeof reason !== "undefined") {
+			out.push(`\`\`\`${reason}\`\`\``);
 		}
 
 		victim.send(out.join("\n"));
