@@ -137,9 +137,13 @@ function sendServerList(channel, sorted) {
 	}
 
 	if(output.length) {
-		channel.send(output);
+		try {
+			channel.send(output);
+		} catch(e) {
+			channel.send("Failed to send server list (probably high game activity), please check <https://bllist.theblackparrot.me> for a full list.");
+		}
 	} else {
-		channel.send("No active servers?");
+		channel.send("No active servers.");
 	}
 }
 
