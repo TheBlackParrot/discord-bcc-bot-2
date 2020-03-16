@@ -137,9 +137,9 @@ function sendServerList(channel, sorted) {
 	}
 
 	if(output.length) {
-		try {
+		if(output.join("\n").length < 2000) {
 			channel.send(output);
-		} catch(e) {
+		} else {
 			channel.send("Failed to send server list (probably high game activity), please check <https://bllist.theblackparrot.me> for a full list.");
 		}
 	} else {
