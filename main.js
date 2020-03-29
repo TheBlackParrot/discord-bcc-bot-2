@@ -526,7 +526,8 @@ var functions = {
 			blockland: "blockland",
 			bl: "blockland",
 			brickadia: "brickadia",
-			br: "brickadia"
+			br: "brickadia",
+			b4v21: "b4v21"
 		};
 
 		let parts = msg.content.toLowerCase().split(" ").splice(1);
@@ -537,7 +538,7 @@ var functions = {
 			return;
 		} else {
 			if(!(parts[0] in availableGames)) {
-				msg.reply(`Available games: ${[...new Set(Object.values(availableGames))].join(", ")} [parts0 not in availableGames]`);
+				msg.reply(`Available games: ${[...new Set(Object.values(availableGames))].join(", ")} [\`${parts[0]}\` not in availableGames]`);
 				return;			
 			}
 			wantedGame = availableGames[parts[0]];
@@ -547,12 +548,18 @@ var functions = {
 
 		switch(wantedGame) {
 			case "blockland":
+			case "b4v21":
 				if(checkCooldown(user, "serversBL", 15000)) {
 					return;
 				}
 
 				channel.startTyping();
-				request("http://master2.blockland.us", function(err, response, body) {
+
+				let masterServerURL = "http://master2.blockland.us";
+				if(wantedGame === "b4v21") {
+					masterServerURL = "http://b4v21.block.land/master/index.php";
+				}
+				request(masterServerURL, function(err, response, body) {
 					channel.stopTyping(true);
 
 					if(err) {
