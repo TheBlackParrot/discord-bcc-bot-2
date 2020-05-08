@@ -148,7 +148,6 @@ function sendServerList(channel, sorted) {
 }
 
 function getSomeInfo() {
-	let owner = client.users.get(settings.ownerID);
 	let rev;
 
 	try {
@@ -169,7 +168,6 @@ function getSomeInfo() {
 		`OS           ${os.platform()} ${os.release()}`,
 		`NODE.JS      ${process.version}`,
 		`GIT COMMIT   ${rev.trim().substr(0, 7)}`,
-		`OWNER        ${owner.tag}`,
 		`DEBUG MODE   ${debugMode}`,
 		"```"
 	];
@@ -818,7 +816,7 @@ var functions = {
 		channel.send(lines);
 	},
 
-	"debug": function(channel, user, member, roles, isMod, msg) {
+	/*"debug": function(channel, user, member, roles, isMod, msg) {
 		if(checkCooldown(user, "info", 1500)) {
 			return;
 		}
@@ -841,9 +839,9 @@ var functions = {
 			debugMode = true;
 			msg.reply("Debug mode now on");
 		}
-	},
+	},*/
 
-	"restart": function(channel, user, member, roles, isMod, msg) {
+	/*"restart": function(channel, user, member, roles, isMod, msg) {
 		if(checkCooldown(user, "restart", 1500)) {
 			return;
 		}
@@ -862,7 +860,7 @@ var functions = {
 		// using pm2 so this should trigger it to start it back up
 		// you'd do something like https://stackoverflow.com/a/55371749 otherwise
 		process.exit();
-	},
+	},*/
 
 	"hackban": function(channel, user, member, roles, isMod, msg) {
 		if(!isMod) {
