@@ -137,6 +137,8 @@ function sendServerList(channel, sorted) {
 	}
 
 	if(output.length) {
+		output = output.replace(/\@/gi, "");
+		
 		if(output.join("\n").length < 2000) {
 			channel.send(output);
 		} else {
