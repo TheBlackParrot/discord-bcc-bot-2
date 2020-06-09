@@ -137,9 +137,9 @@ function sendServerList(channel, sorted) {
 	}
 
 	if(output.length) {
-		output = output.replace(/\@/gi, "");
-		
-		if(output.join("\n").length < 2000) {
+		output = output.join("\n").replace(/\@/gi, "");
+
+		if(output.length < 2000) {
 			channel.send(output);
 		} else {
 			channel.send("Failed to send server list (probably high game activity), please check <https://bllist.theblackparrot.me> for a full list.");
