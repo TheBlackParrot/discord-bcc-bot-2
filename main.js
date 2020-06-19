@@ -548,6 +548,53 @@ var functions = {
 
 		switch(wantedGame) {
 			case "blockland":
+				if(checkCooldown(user, "serversBL", 15000)) {
+					return;
+				}
+
+				channel.startTyping();
+
+				request("http://master3.blockland.us", function(err, response, body) {
+					channel.stopTyping(true);
+
+					if(err) {
+						channel.send(`Error retrieving master server data.\n\`\`\`\n${err}\n\`\`\``);
+						return;
+					}
+					
+					let rows = body.split("\n").map(function(c) {
+						return c.trim().split("\t");
+					});
+
+					let output = [];
+					let sorted = {};
+					
+					for(let idx = 0; idx < rows.length; idx++) {
+						let row = rows[idx];
+						if(skipLinesBL.indexOf(row[0]) !== -1) {
+							continue;
+						}
+
+						let passworded = (row[2] === "1");
+
+						let host = row[10];
+						let title = row[4];
+
+						let players = `${row[5]} / ${row[6]}`;
+
+						if(row[5] !== "0") {
+							if(!(row[5] in sorted)) {
+								sorted[row[5]] = [];
+							}
+
+							sorted[row[5]].push(`${passworded ? ":lock:" : ""} ${host}'s **${title}**\n:busts_in_silhouette: ${players} players online\n`);
+						}
+					}
+
+					sendServerList(channel, sorted);
+				});
+				break;
+
 			case "b4v21":
 				if(checkCooldown(user, "serversBL", 15000)) {
 					return;
@@ -555,11 +602,7 @@ var functions = {
 
 				channel.startTyping();
 
-				let masterServerURL = "http://master2.blockland.us";
-				if(wantedGame === "b4v21") {
-					masterServerURL = "http://b4v21.block.land/master/index.php";
-				}
-				request(masterServerURL, function(err, response, body) {
+				request("http://b4v21.block.land/master/index.php", function(err, response, body) {
 					channel.stopTyping(true);
 
 					if(err) {
