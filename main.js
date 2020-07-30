@@ -654,7 +654,14 @@ var functions = {
 
 				channel.startTyping();
 
-				request("https://brickadia.com/api/v1/servers", function(err, response, body) {
+				let opts = {
+					url: 'https://brickadia.com/api/v1/servers',
+					headers: {
+						'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:77.0) Gecko/20100101 Firefox/77.0'
+					}
+				};
+
+				request(opts, function(err, response, body) {
 					channel.stopTyping(true);
 
 					if(err) {
